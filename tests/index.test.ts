@@ -1,19 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { transform } from '@swc/core'
-import { transformVueJsx } from '../src'
-
-const transformJsx = (code: string) => {
-  return transform(code, {
-    jsc: {
-      target: 'es2022',
-      parser: {
-        syntax: 'ecmascript',
-        jsx: true,
-      },
-    },
-    plugin: (m) => transformVueJsx(m),
-  })
-}
+import { transformJsx } from './_util'
 
 describe('transform', () => {
   test('basic', async () => {

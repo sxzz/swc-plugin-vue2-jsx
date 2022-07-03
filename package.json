@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "packageManager": "pnpm@7.3.0",
   "description": "My awesome typescript library",
+  "type": "module",
   "license": "MIT",
   "files": [
     "dist"
@@ -25,6 +26,9 @@
     "release": "bumpp --commit --push --tag && pnpm publish",
     "prepublishOnly": "pnpm run build"
   },
+  "dependencies": {
+    "@swc/core": "^1.2.208"
+  },
   "devDependencies": {
     "@sxzz/eslint-config-prettier": "^2.2.2",
     "@sxzz/eslint-config-ts": "^2.2.2",
@@ -41,8 +45,5 @@
   },
   "engines": {
     "node": ">=14.19.0"
-  },
-  "dependencies": {
-    "@swc/core": "^1.2.208"
   }
 }

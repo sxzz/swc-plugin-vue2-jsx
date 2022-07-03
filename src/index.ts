@@ -1,27 +1,50 @@
 import { Visitor } from '@swc/core/Visitor.js'
-import { rootAttributes } from './constants'
+import {
+  domPropsValueElements,
+  rootAttributes,
+  rootAttributesPrefix,
+} from './constants'
 import type {
   Argument,
   CallExpression,
+  ExprOrSpread,
   Expression,
   JSXAttribute,
   JSXElement,
   JSXElementChild,
   JSXExpressionContainer,
   JSXOpeningElement,
+  JSXText,
   KeyValueProperty,
+  MemberExpression,
   Node,
   ObjectExpression,
   Program,
   StringLiteral,
 } from '@swc/core'
 
+const xlinkRE = /^xlink([A-Z])/
+
 function notSupported(n: Node): never {
   throw new Error(`${n.type} is not supported`)
 }
 
+/**
+ * Checks if attribute is "special" and needs to be used as domProps
+ */
+const mustUseDomProps = (tag: string, type: string, attributeName: string) => {
+  return (
+    (attributeName === 'value' &&
+      domPropsValueElements.includes(tag) &&
+      type !== 'button') ||
+    (attributeName === 'selected' && tag === 'option') ||
+    (attributeName === 'checked' && tag === 'input') ||
+    (attributeName === 'muted' && tag === 'video')
+  )
+}
+
 /** Converts expressions to arguments */
-function expressionsToArguments(arr: Expression[]) {
+function wrapperExpressions(arr: Expression[]) {
   return arr.map((item): Argument => ({ expression: item }))
 }
 
@@ -34,27 +57,87 @@ function transformJsxExpressionContainer(
   return n.expression
 }
 
-function transformTagName(n: JSXOpeningElement): StringLiteral {
-  switch (n.name.type) {
-    case 'Identifier':
-      return {
+/**
+ * Transform JSXText to StringLiteral
+ */
+const transformJsxText = (n: JSXText): StringLiteral | undefined => {
+  const lines = n.value.split(/\r\n|\n|\r/)
+
+  let lastNonEmptyLine = 0
+
+  for (const [i, line] of lines.entries()) {
+    if (line.match(/[^\t ]/)) {
+      lastNonEmptyLine = i
+    }
+  }
+
+  let str = ''
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    const isFirstLine = i === 0
+    const isLastLine = i === lines.length - 1
+    const isLastNonEmptyLine = i === lastNonEmptyLine
+
+    // replace rendered whitespace tabs with spaces
+    let trimmedLine = line.replace(/\t/g, ' ')
+
+    // trim whitespace touching a newline
+    if (!isFirstLine) {
+      trimmedLine = trimmedLine.replace(/^ +/, '')
+    }
+
+    // trim whitespace touching an endline
+    if (!isLastLine) {
+      trimmedLine = trimmedLine.replace(/ +$/, '')
+    }
+
+    if (trimmedLine) {
+      if (!isLastNonEmptyLine) {
+        trimmedLine += ' '
+      }
+
+      str += trimmedLine
+    }
+  }
+
+  return str !== ''
+    ? {
         type: 'StringLiteral',
-        value: n.name.value,
+        value: str,
         hasEscape: false,
         span: n.span,
       }
-    // <A.B>
-    // TODO
+    : undefined
+}
+
+function transformTag(n: JSXOpeningElement): StringLiteral | MemberExpression {
+  const { name } = n
+  switch (name.type) {
+    case 'Identifier':
+      return {
+        type: 'StringLiteral',
+        value: name.value,
+        hasEscape: false,
+        span: n.span,
+      }
     case 'JSXMemberExpression':
+      return {
+        type: 'MemberExpression',
+        object: name.object,
+        property: name.property,
+        span: n.span,
+      }
     default:
       notSupported(n)
   }
 }
 
-function transformJsxAttribute(n: JSXAttribute): [KeyValueProperty, string] {
+function transformJsxAttribute(n: JSXAttribute): [string, Expression] {
   if (n.name.type === 'JSXNamespacedName') {
     // TODO
-    return notSupported(n)
+    return notSupported(n.name)
   }
 
   const attrValue = n.value
@@ -76,75 +159,166 @@ function transformJsxAttribute(n: JSXAttribute): [KeyValueProperty, string] {
       span: n.span,
     }
 
-  return [
-    {
-      type: 'KeyValueProperty',
-      key: n.name,
-      value,
-    },
-    n.name.value,
-  ]
+  return [n.name.value, value]
+}
+
+function last<T>(arr: T[]): T | undefined {
+  return arr?.[arr.length - 1]
+}
+
+function transformAttributeKey(
+  attributes: Record<string, Expression[]>,
+  key: string,
+  tagName: string | undefined
+): [typeof rootAttributesPrefix[number], string] {
+  let prefix = rootAttributesPrefix.find((prefix) => key.startsWith(prefix))
+  let name: string
+  if (prefix) {
+    name = key
+      .slice(prefix.length)
+      .replace(/^-/, '')
+      .replace(/^[A-Z]/, (s) => s.toLowerCase())
+  } else {
+    prefix = 'attrs'
+    name = key
+  }
+
+  if (tagName) {
+    const typeValue = last(attributes.type)
+    const elementType = typeValue?.type === 'StringLiteral' && typeValue.value
+    if (mustUseDomProps(tagName, elementType || '', name)) {
+      prefix = 'domProps'
+    }
+  }
+
+  if (xlinkRE.test(name)) {
+    name = name.replace(xlinkRE, (_, firstCharacter) => {
+      return `xlink:${firstCharacter.toLowerCase()}`
+    })
+  }
+
+  return [prefix, name]
+}
+
+function transformAttributeValue(
+  prefix: string,
+  opening: JSXOpeningElement,
+  values: Expression[]
+): Expression[] {
+  if (prefix === 'on' && values.length > 1) {
+    return [
+      {
+        type: 'ArrayExpression',
+        elements: wrapperExpressions(values),
+        span: opening.span,
+      },
+    ]
+  } else {
+    return values
+  }
 }
 
 function transformJsxAttributes(
-  opening: JSXOpeningElement
+  opening: JSXOpeningElement,
+  tagName: string | undefined
 ): ObjectExpression | undefined {
   if (!opening.attributes) return
 
-  const attrs: KeyValueProperty[] = []
-  const properties: KeyValueProperty[] = []
-
-  for (const attribute of opening.attributes) {
-    switch (attribute.type) {
+  const attributes: Record<string, Expression[]> = {}
+  for (const attr of opening.attributes) {
+    let key: string
+    let value: Expression
+    switch (attr.type) {
       case 'JSXAttribute': {
-        const [kv, key] = transformJsxAttribute(attribute)
-        if (rootAttributes.includes(key)) {
-          properties.push(kv)
-        } else {
-          attrs.push(kv)
-        }
+        ;[key, value] = transformJsxAttribute(attr)
         break
       }
       default:
-        return notSupported(attribute)
+        return notSupported(attr)
+    }
+
+    if (!attributes[key]) attributes[key] = []
+    attributes[key].push(value)
+  }
+
+  const propertyMap: Partial<
+    Record<typeof rootAttributesPrefix[number] | 'attrs', KeyValueProperty[]>
+  > &
+    // Root property
+    Record<typeof rootAttributes[number], Expression> = {}
+
+  for (const [key, values] of Object.entries(attributes)) {
+    if (rootAttributes.includes(key)) {
+      propertyMap[key] = last(values)!
+    } else {
+      const [prefix, name] = transformAttributeKey(attributes, key, tagName)
+      if (!propertyMap[prefix]) propertyMap[prefix] = []
+
+      const attrValues = transformAttributeValue(prefix, opening, values)
+
+      propertyMap[prefix]!.push(
+        ...attrValues.map(
+          (value): KeyValueProperty => ({
+            type: 'KeyValueProperty',
+            key: {
+              type: 'StringLiteral',
+              value: name,
+              span: opening.span,
+              hasEscape: false,
+            },
+            value,
+          })
+        )
+      )
     }
   }
-  if (attrs.length > 0) {
-    properties.push({
-      type: 'KeyValueProperty',
-      key: {
-        type: 'Identifier',
-        value: 'attrs',
-        span: opening.span,
-        optional: false,
-      },
-      value: {
-        type: 'ObjectExpression',
-        properties: attrs,
-        span: opening.span,
-      },
-    })
-  }
+
+  const properties = Object.entries(propertyMap).map(
+    ([key, valueOrAttr]): KeyValueProperty => {
+      if (Array.isArray(valueOrAttr)) {
+        return {
+          type: 'KeyValueProperty',
+          key: {
+            type: 'Identifier',
+            value: key,
+            span: opening.span,
+            optional: false,
+          },
+          value: {
+            type: 'ObjectExpression',
+            properties: valueOrAttr,
+            span: opening.span,
+          },
+        }
+      } else {
+        return {
+          type: 'KeyValueProperty',
+          key: {
+            type: 'Identifier',
+            value: key,
+            span: opening.span,
+            optional: false,
+          },
+          value: valueOrAttr,
+        }
+      }
+    }
+  )
+
   if (properties.length === 0) {
     return undefined
   }
 
-  const n: ObjectExpression = {
+  return {
     type: 'ObjectExpression',
     properties,
     span: opening.span,
   }
-
-  // return {
-  //   type: 'ObjectExpression',
-  //   properties,
-  //   span: nodes[0],
-  // }
-
-  return n
 }
 
-function transformJsx(n: JSXElementChild): Expression | undefined {
+function transformJsx(
+  n: JSXElementChild
+): Expression | ExprOrSpread | undefined {
   switch (n.type) {
     case 'JSXElement':
       return transformJSXElement(n)
@@ -153,40 +327,50 @@ function transformJsx(n: JSXElementChild): Expression | undefined {
     case 'JSXFragment':
       return notSupported(n)
     case 'JSXSpreadChild':
-      return n.expression
-    case 'JSXText':
       return {
-        type: 'StringLiteral',
-        value: n.value,
-        span: n.span,
-        hasEscape: false,
+        expression: n.expression,
+        spread: (n as any).span,
       }
+    case 'JSXText':
+      return transformJsxText(n)
   }
+}
+
+function isExprssion(n: any): n is Expression {
+  return !!n.type
+}
+
+function toExprOrSpread(n: Expression | ExprOrSpread): ExprOrSpread {
+  if (!n) return n
+  if (isExprssion(n)) return { expression: n }
+  else return n
 }
 
 /** Transform JSXElement to h() calls */
 const transformJSXElement = (n: JSXElement): CallExpression => {
-  const tag = transformTagName(n.opening)
+  const tag = transformTag(n.opening)
+  const tagName = tag.type === 'StringLiteral' ? tag.value : undefined
 
   const args: Expression[] = [tag]
 
   // attrs
-  const attrs = transformJsxAttributes(n.opening)
+  const attrs = transformJsxAttributes(n.opening, tagName)
   if (attrs) args.push(attrs)
 
   // children
-  const children = n.children.map((child) => transformJsx(child))
-  args.push({
-    type: 'ArrayExpression',
-    elements: children.map((child) =>
-      child ? { expression: child } : undefined
-    ),
-    span: n.span,
-  })
+  const children = n.children
+    .map((child) => transformJsx(child))
+    .filter((c): c is Expression | ExprOrSpread => !!c)
+  if (children.length > 0)
+    args.push({
+      type: 'ArrayExpression',
+      elements: children.map((child) => toExprOrSpread(child)),
+      span: n.span,
+    })
 
   return {
     type: 'CallExpression',
-    arguments: expressionsToArguments(args),
+    arguments: wrapperExpressions(args),
     callee: {
       type: 'Identifier',
       value: 'h',

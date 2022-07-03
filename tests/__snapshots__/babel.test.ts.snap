@@ -1,0 +1,249 @@
+// Vitest Snapshot v1
+
+exports[`from babel jsx > Combined content 1`] = `
+"render((h)=>h(\\"div\\", [
+        \\"test\\",
+        test,
+        \\" \\",
+        ...test,
+        h(\\"tag1\\"),
+        h(\\"tag2\\"),
+        \\"Some text goes here\\"
+    ]));
+"
+`;
+
+exports[`from babel jsx > Data attributes 1`] = `
+"render((h)=>h(\\"div\\", {
+        attrs: {
+            \\"data-id\\": \\"1\\"
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > Expression attrs 1`] = `
+"render((h)=>h(\\"div\\", {
+        attrs: {
+            \\"id\\": id
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > HTML tag 1`] = `
+"render((h)=>h(\\"div\\", [
+        \\"test\\"
+    ]));
+"
+`;
+
+exports[`from babel jsx > HTML tag if variable in scope 1`] = `
+"const div = {};
+render((h)=>h(\\"div\\", [
+        \\"test\\"
+    ]));
+"
+`;
+
+exports[`from babel jsx > JSX comments 1`] = `
+"h(\\"div\\", [
+    h(\\"p\\", [
+        \\"jsx\\"
+    ])
+]);
+"
+`;
+
+exports[`from babel jsx > Magic domProps input[checked] 1`] = `
+"h(\\"input\\", {
+    domProps: {
+        \\"checked\\": val
+    }
+});
+"
+`;
+
+exports[`from babel jsx > Magic domProps input[value] 1`] = `
+"h(\\"input\\", {
+    attrs: {
+        \\"type\\": \\"text\\"
+    },
+    domProps: {
+        \\"value\\": val
+    }
+});
+"
+`;
+
+exports[`from babel jsx > Magic domProps option[selected] 1`] = `
+"h(\\"option\\", {
+    domProps: {
+        \\"selected\\": val
+    }
+});
+"
+`;
+
+exports[`from babel jsx > Magic domProps video[muted] 1`] = `
+"h(\\"video\\", {
+    domProps: {
+        \\"muted\\": val
+    }
+});
+"
+`;
+
+exports[`from babel jsx > MemberExpression component 1`] = `
+"render((h)=>h(a.b.c, [
+        \\"test\\"
+    ]));
+"
+`;
+
+exports[`from babel jsx > Multiple event listeners 1`] = `
+"h(\\"div\\", {
+    on: {
+        \\"click\\": [
+            listner1,
+            listner2,
+            listner3
+        ]
+    }
+});
+"
+`;
+
+exports[`from babel jsx > Plain attrs 1`] = `
+"render((h)=>h(\\"div\\", {
+        attrs: {
+            \\"id\\": \\"hi\\",
+            \\"dir\\": \\"ltr\\"
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > Root attribute 1`] = `
+"h(\\"MyComponent\\", {
+    props: {
+        \\"prop1\\": \\"foo\\",
+        \\"\\": {
+            prop1: 'alpha',
+            prop2: 'beta'
+        }
+    }
+});
+"
+`;
+
+exports[`from babel jsx > Self-closing html tag 1`] = `
+"render((h)=>h(\\"div\\", [
+        h(\\"br\\")
+    ]));
+"
+`;
+
+exports[`from babel jsx > Special camelCase attributes 1`] = `
+"render((h)=>h(\\"div\\", {
+        props: {
+            \\"onSuccess\\": noop
+        },
+        on: {
+            \\"click\\": noop,
+            \\"camelCase\\": noop
+        },
+        domProps: {
+            \\"innerHTML\\": \\"<p>hi</p>\\"
+        },
+        hook: {
+            \\"insert\\": noop
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > Special root attributes 1`] = `
+"render((h)=>h(\\"div\\", {
+        class: \\"foo\\",
+        style: \\"bar\\",
+        key: \\"key\\",
+        ref: \\"ref\\",
+        refInFor: true,
+        slot: \\"slot\\",
+        model: {
+            value: this.txt,
+            callback: ($$v)=>{
+                this.txt = $$v;
+            }
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > Special snake-case attributes 1`] = `
+"render((h)=>h(\\"div\\", {
+        props: {
+            \\"on-success\\": noop
+        },
+        on: {
+            \\"click\\": noop,
+            \\"kebab-case\\": noop
+        },
+        domProps: {
+            \\"innerHTML\\": \\"<p>hi</p>\\"
+        },
+        hook: {
+            \\"insert\\": noop
+        }
+    }));
+"
+`;
+
+exports[`from babel jsx > Spread content 1`] = `
+"render((h)=>h(\\"div\\", [
+        ...test
+    ]));
+"
+`;
+
+exports[`from babel jsx > Tag & Component 1`] = `
+"const Alpha = {};
+render((h)=>[
+        h(\\"Alpha\\", [
+            \\"test\\"
+        ]),
+        h(\\"Beta\\", [
+            \\"test\\"
+        ])
+    ]);
+"
+`;
+
+exports[`from babel jsx > Underscore Props 1`] = `
+"const MyComp = {};
+render((h)=>h(\\"MyComponent\\", {
+        attrs: {
+            \\"my_prop\\": \\"test\\"
+        }
+    }, [
+        \\"test\\"
+    ]));
+"
+`;
+
+exports[`from babel jsx > Variable as content 1`] = `
+"render((h)=>h(\\"div\\", [
+        test
+    ]));
+"
+`;
+
+exports[`from babel jsx > xlink 1`] = `
+"h(\\"use\\", {
+    attrs: {
+        \\"xlink:href\\": '#name'
+    }
+});
+"
+`;

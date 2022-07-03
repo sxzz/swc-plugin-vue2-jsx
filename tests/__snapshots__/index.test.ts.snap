@@ -1,39 +1,33 @@
 // Vitest Snapshot v1
 
 exports[`transform > attributes 1`] = `
-{
-  "code": "const vnode = h(\\"div\\", {
-    ref: \\"ref1\\",
+"const vnode = h(\\"div\\", {
     attrs: {
-        a: \\"b\\"
-    }
+        \\"a\\": \\"b\\"
+    },
+    ref: \\"ref1\\"
 }, [
     h(\\"p\\", [
         \\"123\\"
     ])
 ]);
-",
-}
+"
 `;
 
 exports[`transform > attributes w/ expression 1`] = `
-{
-  "code": "const vnode = h(\\"div\\", {
+"const vnode = h(\\"div\\", {
     attrs: {
-        a: 1 + 2
+        \\"a\\": 1 + 2
     }
-}, []);
-",
-}
+});
+"
 `;
 
 exports[`transform > basic 1`] = `
-{
-  "code": "const vnode = h(\\"div\\", [
+"const vnode = h(\\"div\\", [
     h(\\"p\\", [
         \\"123\\"
     ])
 ]);
-",
-}
+"
 `;
