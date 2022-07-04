@@ -17,6 +17,7 @@ import type {
   JSXText,
   KeyValueProperty,
   MemberExpression,
+  Module,
   Node,
   ObjectExpression,
   Program,
@@ -220,22 +221,14 @@ function transformAttributeValue(
 
 function transformJsxAttributes(
   opening: JSXOpeningElement,
+  attrs: JSXAttribute[],
   tagName: string | undefined
 ): ObjectExpression | undefined {
   if (!opening.attributes) return
 
   const attributes: Record<string, Expression[]> = {}
-  for (const attr of opening.attributes) {
-    let key: string
-    let value: Expression
-    switch (attr.type) {
-      case 'JSXAttribute': {
-        ;[key, value] = transformJsxAttribute(attr)
-        break
-      }
-      default:
-        return notSupported(attr)
-    }
+  for (const attr of attrs) {
+    const [key, value] = transformJsxAttribute(attr)
 
     if (!attributes[key]) attributes[key] = []
     attributes[key].push(value)
@@ -316,26 +309,6 @@ function transformJsxAttributes(
   }
 }
 
-function transformJsx(
-  n: JSXElementChild
-): Expression | ExprOrSpread | undefined {
-  switch (n.type) {
-    case 'JSXElement':
-      return transformJSXElement(n)
-    case 'JSXExpressionContainer':
-      return transformJsxExpressionContainer(n)
-    case 'JSXFragment':
-      return notSupported(n)
-    case 'JSXSpreadChild':
-      return {
-        expression: n.expression,
-        spread: (n as any).span,
-      }
-    case 'JSXText':
-      return transformJsxText(n)
-  }
-}
-
 function isExprssion(n: any): n is Expression {
   return !!n.type
 }
@@ -346,47 +319,143 @@ function toExprOrSpread(n: Expression | ExprOrSpread): ExprOrSpread {
   else return n
 }
 
-/** Transform JSXElement to h() calls */
-const transformJSXElement = (n: JSXElement): CallExpression => {
-  const tag = transformTag(n.opening)
-  const tagName = tag.type === 'StringLiteral' ? tag.value : undefined
-
-  const args: Expression[] = [tag]
-
-  // attrs
-  const attrs = transformJsxAttributes(n.opening, tagName)
-  if (attrs) args.push(attrs)
-
-  // children
-  const children = n.children
-    .map((child) => transformJsx(child))
-    .filter((c): c is Expression | ExprOrSpread => !!c)
-  if (children.length > 0)
-    args.push({
-      type: 'ArrayExpression',
-      elements: children.map((child) => toExprOrSpread(child)),
-      span: n.span,
-    })
-
-  return {
-    type: 'CallExpression',
-    arguments: wrapperExpressions(args),
-    callee: {
-      type: 'Identifier',
-      value: 'h',
-      optional: false,
-      span: n.span,
-    },
-    span: n.span,
-  }
-}
-
-class JsxTransformer extends Visitor {
-  visitJSXElement(n: JSXElement): any {
-    return transformJSXElement(n)
-  }
-}
-
 export const transformVueJsx = (program: Program) => {
-  return new JsxTransformer().visitProgram(program)
+  let shouldInjectHelper = false
+
+  function transformJsx(
+    n: JSXElementChild
+  ): Expression | ExprOrSpread | undefined {
+    switch (n.type) {
+      case 'JSXElement':
+        return transformJSXElement(n)
+      case 'JSXExpressionContainer':
+        return transformJsxExpressionContainer(n)
+      case 'JSXFragment':
+        return notSupported(n)
+      case 'JSXSpreadChild':
+        return {
+          expression: n.expression,
+          spread: (n as any).span,
+        }
+      case 'JSXText':
+        return transformJsxText(n)
+    }
+  }
+
+  /** Transform JSXElement to h() calls */
+  const transformJSXElement = (n: JSXElement): CallExpression => {
+    const tag = transformTag(n.opening)
+    const tagName = tag.type === 'StringLiteral' ? tag.value : undefined
+
+    const args: Expression[] = [tag]
+
+    // attrs
+    if (n.opening.attributes) {
+      const groupedAttrs: Array<JSXAttribute[] | Expression> = []
+      for (const attr of n.opening.attributes ?? []) {
+        let lastElement = last(groupedAttrs)
+        if (!Array.isArray(lastElement)) {
+          lastElement = []
+          groupedAttrs.push(lastElement)
+        }
+        if (attr.type === 'SpreadElement') {
+          groupedAttrs.push(attr.arguments)
+        } else {
+          lastElement.push(attr)
+        }
+      }
+      const finalAttrs: Expression[] = []
+      for (const attrs of groupedAttrs) {
+        if (Array.isArray(attrs)) {
+          const expr = transformJsxAttributes(n.opening, attrs, tagName)
+          if (expr) finalAttrs.push(expr)
+        } else {
+          finalAttrs.push(attrs)
+        }
+      }
+
+      if (finalAttrs.length === 1) {
+        args.push(finalAttrs[0])
+      } else if (finalAttrs.length > 1) {
+        shouldInjectHelper = true
+        args.push({
+          type: 'CallExpression',
+          callee: {
+            type: 'Identifier',
+            value: '_mergeJSXProps',
+            optional: false,
+            span: n.span,
+          },
+          arguments: wrapperExpressions([
+            {
+              type: 'ArrayExpression',
+              elements: wrapperExpressions(finalAttrs),
+              span: n.span,
+            },
+          ]),
+          span: n.span,
+        })
+      }
+    }
+
+    // children
+    const children = n.children
+      .map((child) => transformJsx(child))
+      .filter((c): c is Expression | ExprOrSpread => !!c)
+    if (children.length > 0)
+      args.push({
+        type: 'ArrayExpression',
+        elements: children.map((child) => toExprOrSpread(child)),
+        span: n.span,
+      })
+
+    return {
+      type: 'CallExpression',
+      arguments: wrapperExpressions(args),
+      callee: {
+        type: 'Identifier',
+        value: 'h',
+        optional: false,
+        span: n.span,
+      },
+      span: n.span,
+    }
+  }
+
+  class JsxTransformer extends Visitor {
+    visitJSXElement(n: JSXElement): any {
+      const expression = transformJSXElement(n)
+      return expression
+    }
+  }
+
+  program = new JsxTransformer().visitProgram(program)
+
+  if (shouldInjectHelper) {
+    const span = { start: 0, end: 0, ctxt: 0 }
+    ;(program as Module).body.unshift({
+      type: 'ImportDeclaration',
+      specifiers: [
+        {
+          type: 'ImportDefaultSpecifier',
+          local: {
+            type: 'Identifier',
+            value: '_mergeJSXProps',
+            optional: false,
+            span,
+          },
+          span,
+        },
+      ],
+      source: {
+        type: 'StringLiteral',
+        value: '@vue/babel-helper-vue-jsx-merge-props',
+        hasEscape: false,
+        span,
+      },
+      typeOnly: false,
+      span,
+    })
+  }
+  return program
 }

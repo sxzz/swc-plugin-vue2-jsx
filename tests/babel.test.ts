@@ -212,30 +212,30 @@ render(h => h("div", _mergeJSXProps([{}, spread, {
   }
 }])));`,
   },
-  {
-    name: 'Directives',
-    from: `render(h => <div v-test={ 123 } vSomething_modifier={ 1234 } vOtherStuff:argument_modifier1_modifier2={ 234 } />)`,
-    to: `render(h => h("div", {
-  "directives": [{
-    name: "test",
-    value: 123
-  }, {
-    name: "something",
-    value: 1234,
-    modifiers: {
-      "modifier": true
-    }
-  }, {
-    name: "other-stuff",
-    value: 234,
-    arg: "argument",
-    modifiers: {
-      "modifier1": true,
-      "modifier2": true
-    }
-  }]
-}));`,
-  },
+  //   {
+  //     name: 'Directives',
+  //     from: `render(h => <div v-test={ 123 } vSomething_modifier={ 1234 } vOtherStuff:argument_modifier1_modifier2={ 234 } />)`,
+  //     to: `render(h => h("div", {
+  //   "directives": [{
+  //     name: "test",
+  //     value: 123
+  //   }, {
+  //     name: "something",
+  //     value: 1234,
+  //     modifiers: {
+  //       "modifier": true
+  //     }
+  //   }, {
+  //     name: "other-stuff",
+  //     value: 234,
+  //     arg: "argument",
+  //     modifiers: {
+  //       "modifier1": true,
+  //       "modifier2": true
+  //     }
+  //   }]
+  // }));`,
+  //   },
   {
     name: 'xlink',
     from: `<use xlinkHref={'#name'} />`,

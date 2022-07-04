@@ -31,6 +31,19 @@ exports[`from babel jsx > Expression attrs 1`] = `
 "
 `;
 
+exports[`from babel jsx > Generic spread attributes 1`] = `
+"import _mergeJSXProps from \\"@vue/babel-helper-vue-jsx-merge-props\\";
+render((h)=>h(\\"div\\", _mergeJSXProps([
+        spread,
+        {
+            attrs: {
+                \\"hello\\": \\"world\\"
+            }
+        }
+    ])));
+"
+`;
+
 exports[`from babel jsx > HTML tag 1`] = `
 "render((h)=>h(\\"div\\", [
         \\"test\\"
@@ -43,6 +56,28 @@ exports[`from babel jsx > HTML tag if variable in scope 1`] = `
 render((h)=>h(\\"div\\", [
         \\"test\\"
     ]));
+"
+`;
+
+exports[`from babel jsx > Inline spread attributes 1`] = `
+"import _mergeJSXProps from \\"@vue/babel-helper-vue-jsx-merge-props\\";
+const props = {
+    innerHTML: 2
+};
+const otherName = {
+    someAttr: 'hey'
+};
+const vnode = render((h)=>h(\\"div\\", _mergeJSXProps([
+        {
+            props: {
+                \\"hello\\": \\"test\\"
+            }
+        },
+        {
+            props,
+            attrs: otherName
+        }
+    ])));
 "
 `;
 
@@ -111,6 +146,11 @@ exports[`from babel jsx > Multiple event listeners 1`] = `
         ]
     }
 });
+"
+`;
+
+exports[`from babel jsx > Only spread attributes 1`] = `
+"render((h)=>h(\\"div\\", spread));
 "
 `;
 
