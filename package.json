@@ -1,8 +1,8 @@
 {
-  "name": "node-lib-starter",
+  "name": "swc-plugin-vue2-jsx",
   "version": "0.0.0",
   "packageManager": "pnpm@7.3.0",
-  "description": "My awesome typescript library",
+  "description": "Vue 2 JSX plugin of swc.",
   "license": "MIT",
   "files": [
     "dist"
