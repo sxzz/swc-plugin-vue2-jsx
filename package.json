@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "packageManager": "pnpm@7.3.0",
   "description": "My awesome typescript library",
-  "type": "module",
   "license": "MIT",
   "files": [
     "dist"
